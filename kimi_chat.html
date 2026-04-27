@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kimi K2.6 - Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://js.puter.com/v2/"></script>
+<style>
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-sidebar: #f3f4f6;
+  --bg-hover: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: #e5e7eb;
+  --accent: #10a37f;
+  --accent-hover: #0d8f6f;
+  --user-msg-bg: #10a37f;
+  --ai-msg-bg: #f3f4f6;
+  --error-bg: #fef2f2;
+  --error-text: #991b1b;
+  --error-border: #fecaca;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --radius: 12px;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --bg-sidebar: #1a1a2e;
+  --bg-hover: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --user-msg-bg: #10b981;
+  --ai-msg-bg: #374151;
+  --error-bg: #7f1d1d;
+  --error-text: #fecaca;
+  --error-border: #b91c1c;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s, background 0.3s;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.new-chat-btn:hover { background: var(--bg-hover); }
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.chat-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.2s;
+}
+
+.chat-item:hover, .chat-item.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Main Area */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.top-bar {
+  height: 56px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--bg-primary);
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.model-selector {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.top-bar-right {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.icon-btn:hover { background: var(--bg-hover); }
+
+/* Chat Area */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 0;
+}
+
+.messages-container {
+  max-width: 768px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state h1 {
+  font-size: 32px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.empty-state p { font-size: 16px; }
+
+.message-wrapper {
+  display: flex;
+  gap: 12px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message-wrapper.user { flex-direction: row-reverse; }
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.avatar.ai {
+  background: var(--accent);
+  color: white;
+}
+
+.avatar.user {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.message-content {
+  max-width: calc(100% - 48px);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.message-wrapper.user .message-content {
+  background: var(--user-msg-bg);
+  color: white;
+}
+
+.message-wrapper.ai .message-content {
+  background: var(--ai-msg-bg);
+  color: var(--text-primary);
+}
+
+.message-content h1, .message-content h2, .message-content h3 {
+  margin: 16px 0 8px;
+  font-weight: 600;
+}
+
+.message-content p { margin: 8px 0; }
+
+.message-content pre {
+  background: #1a1a2e;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.message-content code {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 13px;
+}
+
+.message-content pre code { background: none; padding: 0; }
+
+.message-content :not(pre) > code {
+  background: rgba(0,0,0,0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .message-content :not(pre) > code {
+  background: rgba(255,255,255,0.1);
+}
+
+.message-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+.message-content ul, .message-content ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+/* Error Message Styling */
+.error-box {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  color: var(--error-text);
+  font-size: 14px;
+}
+
+.error-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Thinking Indicator */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  animation: blink 1.4s infinite;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+/* Input Area */
+.input-area {
+  border-top: 1px solid var(--border-color);
+  padding: 12px 20px 20px;
+  background: var(--bg-primary);
+}
+
+.input-container {
+  max-width: 768px;
+  margin: 0 auto;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-container:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+}
+
+textarea {
+  width: 100%;
+  min-height: 24px;
+  max-height: 200px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.input-left {
+  display: flex;
+  gap: 4px;
+}
+
+.input-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-upload-wrapper {
+  position: relative;
+}
+
+.file-upload-wrapper input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.send-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.send-btn:hover { background: var(--accent-hover); }
+
+.send-btn:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.input-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    z-index: 100;
+    transform: translateX(-100%);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .menu-toggle { display: flex; }
+  .messages-container { padding: 0 12px; }
+}
+
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 99;
+}
+
+.overlay.show { display: block; }
+</style>
+</head>
+<body data-theme="light">
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <button class="new-chat-btn" onclick="startNewChat()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      New Chat
+    </button>
+  </div>
+  <div class="chat-list" id="chat-list"></div>
+  <div class="sidebar-footer">
+    Kimi K2.6 Replica
+  </div>
+</aside>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<!-- Main -->
+<div class="main">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <button class="menu-toggle icon-btn" onclick="toggleSidebar()">☰</button>
+      <select class="model-selector" id="model-select">
+        <option value="moonshotai/kimi-k2.6">Kimi K2.6</option>
+        <option value="moonshotai/kimi-k2.5">Kimi K2.5</option>
+        <option value="moonshotai/kimi-k2-turbo-preview">Kimi K2 Turbo</option>
+      </select>
+    </div>
+    <div class="top-bar-right">
+      <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="chat-area" id="chat-area">
+    <div class="messages-container" id="messages-container">
+      <div class="empty-state">
+        <h1>How can I help you today?</h1>
+        <p>Upload files, paste text, or just start typing.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-container">
+      <textarea
+        id="user-input"
+        placeholder="Message Kimi..."
+        rows="1"
+        oninput="autoResize(this)"
+        onkeydown="handleKeydown(event)"
+      ></textarea>
+      <div class="input-actions">
+        <div class="input-left">
+          <div class="file-upload-wrapper icon-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+            <input type="file" id="file-input" multiple onchange="handleFileUpload(this)">
+          </div>
+        </div>
+        <div class="input-right">
+          <button class="send-btn" id="send-btn" onclick="sendMessage()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="input-hint">Kimi can make mistakes. Check important info.</div>
+  </div>
+</div>
+
+<script>
+/* ========== STATE ========== */
+let currentChatId = Date.now().toString();
+let chats = {};
+let conversationHistory = [];
+let isGenerating = false;
+let currentModel = 'moonshotai/kimi-k2.6';
+
+const CONTEXT_LIMITS = {
+  'moonshotai/kimi-k2.6': 256000,
+  'moonshotai/kimi-k2.5': 256000,
+  'moonshotai/kimi-k2-turbo-preview': 256000,
+};
+
+/* ========== UI HELPERS ========== */
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+}
+
+function getChatTitle(text) {
+  return text.slice(0, 30) || 'New Chat';
+}
+
+function updateChatList() {
+  const list = document.getElementById('chat-list');
+  list.innerHTML = '';
+  Object.entries(chats).sort((a, b) => b[0] - a[0]).forEach(([id, chat]) => {
+    const div = document.createElement('div');
+    div.className = 'chat-item' + (id === currentChatId ? ' active' : '');
+    div.textContent = chat.title;
+    div.onclick = () => loadChat(id);
+    list.appendChild(div);
+  });
+}
+
+function startNewChat() {
+  saveCurrentChat();
+  currentChatId = Date.now().toString();
+  conversationHistory = [];
+  document.getElementById('messages-container').innerHTML = `
+    <div class="empty-state">
+      <h1>How can I help you today?</h1>
+      <p>Upload files, paste text, or just start typing.</p>
+    </div>
+  `;
+  updateChatList();
+  if (window.innerWidth <= 768) toggleSidebar();
+}
+
+function saveCurrentChat() {
+  if (!conversationHistory.length) return;
+  const firstUserMsg = conversationHistory.find(m => m.role === 'user');
+  chats[currentChatId] = {
+    title: getChatTitle(firstUserMsg?.content || 'New Chat'),
+    history: [...conversationHistory]
+  };
+}
+
+function loadChat(id) {
+  saveCurrentChat();
+  currentChatId = id;
+  conversationHistory = [...(chats[id]?.history || [])];
+  renderMessages();
+  updateChatList();
+  if (window.innerWidth <= 768) toggleSidebar();
+}
+
+/* ========== MESSAGE RENDERING ========== */
+function renderMessages() {
+  const container = document.getElementById('messages-container');
+  if (!conversationHistory.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <h1>How can I help you today?</h1>
+        <p>Upload files, paste text, or just start typing.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+  conversationHistory.forEach(msg => {
+    if (msg.role === 'system') return;
+    appendMessageToDOM(msg.role, msg.content, msg.error);
+  });
+  scrollToBottom();
+}
+
+function appendMessageToDOM(role, content, errorInfo = null) {
+  const container = document.getElementById('messages-container');
+
+  // Remove empty state if present
+  if (container.querySelector('.empty-state')) {
+    container.innerHTML = '';
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = `message-wrapper ${role}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = `avatar ${role}`;
+  avatar.textContent = role === 'user' ? 'U' : 'K';
+
+  const msgContent = document.createElement('div');
+  msgContent.className = 'message-content';
+
+  if (role === 'ai') {
+    msgContent.innerHTML = DOMPurify.sanitize(marked.parse(content || ''));
+  } else {
+    msgContent.textContent = content;
+  }
+
+  wrapper.appendChild(avatar);
+  wrapper.appendChild(msgContent);
+
+  // If this message carries an error explanation, append it below
+  if (errorInfo) {
+    const errorBox = document.createElement('div');
+    errorBox.className = 'error-box';
+    errorBox.innerHTML = `<strong>${errorInfo.title}</strong>${errorInfo.detail}`;
+    wrapper.appendChild(errorBox);
+  }
+
+  container.appendChild(wrapper);
+  scrollToBottom();
+  return wrapper;
+}
+
+function scrollToBottom() {
+  const area = document.getElementById('chat-area');
+  area.scrollTop = area.scrollHeight;
+}
+
+/* ========== FILE UPLOAD ========== */
+async function handleFileUpload(input) {
+  const files = input.files;
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      // Just push the raw text — let the API decide if it's too much
+      conversationHistory.push({
+        role: 'user',
+        content: `[Uploaded file: ${file.name}]\n\n${text}`
+      });
+      appendMessageToDOM('user', `[Uploaded file: ${file.name}]`);
+    } catch (e) {
+      appendMessageToDOM('user', `[Failed to read file: ${file.name}]`);
+    }
+  }
+  input.value = '';
+}
+
+/* ========== ERROR EXPLANATIONS ========== */
+function explainError(error) {
+  const message = error?.message || String(error);
+  const code = error?.code || error?.status;
+  const type = error?.type || '';
+
+  // Context length / token limit
+  if (
+    message.includes('context length') ||
+    message.includes('token length too long') ||
+    message.includes('exceeded model token limit') ||
+    message.includes('Input token length too long') ||
+    type === 'context_length_exceeded' ||
+    code === 'context_length_exceeded'
+  ) {
+    const limit = CONTEXT_LIMITS[currentModel] || 256000;
+    return {
+      title: 'Context window full',
+      detail: `Your message plus the conversation history exceeds Kimi K2.6's ${limit.toLocaleString()}-token context window. Start a new chat or the model will truncate earlier messages automatically. <a href="#" onclick="startNewChat()" style="color:var(--accent)">Start new chat →</a>`
+    };
+  }
+
+  // Rate limit
+  if (
+    code === 429 ||
+    type === 'rate_limit_reached_error' ||
+    message.includes('too many requests') ||
+    message.includes('rate limit')
+  ) {
+    return {
+      title: 'Rate limit hit',
+      detail: 'Kimi\'s servers are receiving too many requests from this session right now. This is a temporary throttle — wait 10–20 seconds and try again. Heavier usage may require a paid API key.'
+    };
+  }
+
+  // Quota / billing
+  if (
+    type === 'exceeded_current_quota_error' ||
+    message.includes('quota') ||
+    message.includes('billing') ||
+    message.includes('insufficient balance')
+  ) {
+    return {
+      title: 'Quota exceeded',
+      detail: 'Your token quota or free-tier limit has been exhausted for this billing period. Check your Moonshot/Kimi API console or Puter dashboard to review usage and top up.'
+    };
+  }
+
+  // Content filter
+  if (
+    type === 'content_filter' ||
+    message.includes('content filter') ||
+    message.includes('high risk') ||
+    message.includes('safety')
+  ) {
+    return {
+      title: 'Content blocked',
+      detail: 'This request triggered the content moderation filter. This usually happens with prompts that contain disallowed or sensitive topics. Try rephrasing your message more neutrally.'
+    };
+  }
+
+  // Invalid request / bad params
+  if (
+    code === 400 ||
+    type === 'invalid_request_error' ||
+    message.includes('Invalid request')
+  ) {
+    return {
+      title: 'Invalid request',
+      detail: `The API rejected the request format. Details: ${message.slice(0, 200)}. This can happen with malformed messages or unsupported parameters.`
+    };
+  }
+
+  // Authentication
+  if (
+    code === 401 ||
+    type === 'invalid_authentication_error' ||
+    message.includes('authentication') ||
+    message.includes('API key')
+  ) {
+    return {
+      title: 'Authentication failed',
+      detail: 'Your API key is missing, invalid, or expired. If using Puter.js, ensure you are authenticated. If using a direct API key, verify it in your Kimi/Moonshot console.'
+    };
+  }
+
+  // Default / network
+  return {
+    title: 'Request failed',
+    detail: `Something went wrong: ${message.slice(0, 300)}. Check your network connection and try again.`
+  };
+}
+
+/* ========== SEND MESSAGE ========== */
+async function sendMessage() {
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text || isGenerating) return;
+
+  // Remove empty state
+  const container = document.getElementById('messages-container');
+  if (container.querySelector('.empty-state')) container.innerHTML = '';
+
+  // Show user message
+  appendMessageToDOM('user', text);
+  conversationHistory.push({ role: 'user', content: text });
+  input.value = '';
+  input.style.height = 'auto';
+
+  // Update chat title on first message
+  if (conversationHistory.filter(m => m.role === 'user').length === 1) {
+    chats[currentChatId] = { title: getChatTitle(text), history: [] };
+    updateChatList();
+  }
+
+  // Lock UI
+  isGenerating = true;
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled = true;
+
+  // Create AI placeholder with thinking dots
+  const aiWrapper = appendMessageToDOM('ai', '');
+  const aiContent = aiWrapper.querySelector('.message-content');
+  aiContent.innerHTML = `
+    <div class="thinking">
+      <div class="thinking-dots"><span></span><span></span><span></span></div>
+      <span>Thinking...</span>
+    </div>
+  `;
+
+  const model = document.getElementById('model-select').value;
+  currentModel = model;
+
+  try {
+    const response = await puter.ai.chat(conversationHistory, {
+      model: model,
+      stream: true
+    });
+
+    let fullText = '';
+    aiContent.innerHTML = ''; // clear thinking dots
+
+    for await (const part of response) {
+      const chunk = part?.text || part?.content?.text || '';
+      fullText += chunk;
+      aiContent.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+      scrollToBottom();
+    }
+
+    conversationHistory.push({ role: 'assistant', content: fullText });
+  } catch (err) {
+    // Replace thinking with error explanation
+    const explanation = explainError(err);
+    aiContent.innerHTML = `<em style="color:var(--text-muted)">Kimi could not complete this response.</em>`;
+
+    // Append error box after the AI message wrapper
+    const errorBox = document.createElement('div');
+    errorBox.className = 'error-box';
+    errorBox.style.marginTop = '8px';
+    errorBox.innerHTML = `<strong>${explanation.title}</strong>${explanation.detail}`;
+    aiWrapper.appendChild(errorBox);
+
+    // Store in history so it persists on chat reload
+    conversationHistory.push({
+      role: 'assistant',
+      content: '_[Response interrupted]_',
+      error: explanation
+    });
+
+    scrollToBottom();
+  } finally {
+    isGenerating = false;
+    sendBtn.disabled = false;
+    saveCurrentChat();
+  }
+}
+
+/* ========== INIT ========== */
+document.getElementById('model-select').addEventListener('change', (e) => {
+  currentModel = e.target.value;
+});
+
+updateChatList();
+</script>
+</body>
+</html>
